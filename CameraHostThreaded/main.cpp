@@ -24,6 +24,9 @@
 using namespace std;
 using namespace cv;
 
+//Global variables for use in threads after initilisation
+int sendSocket, portnoS, receiveSocket, portnoR;
+
 void error(const char *msg)
 {
     perror(msg);
@@ -61,6 +64,11 @@ void TCPReceive(int socket, uchar* buffer)
     }
 }
 
+void capThread(void)
+{
+    
+}
+
 int main(int argc, char *argv[])
 {
     //-------------------BASIC INIT--------------------------//
@@ -87,7 +95,7 @@ int main(int argc, char *argv[])
     
     
     //-------------------TCP CLIENT INIT-----------------------//
-    int sendSocket, portnoS, receiveSocket, portnoR;
+    //int sendSocket, portnoS, receiveSocket, portnoR;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     

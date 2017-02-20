@@ -162,12 +162,12 @@ int main(int argc, char *argv[])
         //-------------TCP SEND-----------------------------------//
         //TCPSend(sendSocket, sendBuffer);
         thread sendThread(TCPSend, sendSocket, sendBuffer);
-        //sendThread.join();
+        sendThread.join();
         
         
         //-----------TCP RECEIVE----------------------------------//
         thread receiveThread(TCPReceive, receiveSocket, receiveBuffer);
-        //receiveThread.join();
+        receiveThread.join();
         
         //-----------DISPLAY FRAME--------------------------------//
         for (y = 0; y < HEIGHT; y++)

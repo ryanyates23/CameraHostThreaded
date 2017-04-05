@@ -75,8 +75,20 @@ int main(int argc, char *argv[])
     int x,y;
     int showInput = 0;
     float fps;
+    string filename;
+    int fileID = 0;
+    char keyPressed = 0;
+    int abort = 0;
     
-    //-------------------OPENCV INIT-------------------------//
+    uchar configByte = 0;
+    uchar filterType = 0;
+    uchar enSobel = 0;
+    uchar enBinarise = 0;
+    uchar enCombine = 0;
+    uchar enCombineFiltering = 0;
+    
+    
+        //-------------------OPENCV INIT-------------------------//
     uchar sendBuffer[WIDTH*HEIGHT];
     uchar receiveBuffer[WIDTH*HEIGHT];
     Mat inputImage;
@@ -84,9 +96,26 @@ int main(int argc, char *argv[])
     int vecSize = WIDTH*HEIGHT;
     vector<uchar> h_frame_in(vecSize);
     vector<uchar> h_frame_out(vecSize);
+    VideoCapture cap;
     
-    VideoCapture cap(0);
-    if (!cap.isOpened()) return -1;
+    
+    if(fileID == 0)
+    {
+        cap.open(0);
+        if (!cap.isOpened()) return -1;
+    }
+    else
+    {
+        if(fileID == 1) filename = "/Users/ryanyates/Documents/Work/Project/Videos/High with Clouds.mp4";
+        else if(fileID == 2) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low in Front of Trees.mp4";
+        else if(fileID == 3) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Mid Height Stable Camera.mp4";
+        else if(fileID == 4) filename = "/Users/ryanyates/Documents/Work/Project/Videos/Low with Mixed Background.mp4";
+        
+        cap.open(filename);
+    }
+
+    
+    
     
     cap.set(CV_CAP_PROP_FRAME_WIDTH, WIDTH);
     cap.set(CV_CAP_PROP_FRAME_HEIGHT, HEIGHT);
@@ -123,6 +152,8 @@ int main(int argc, char *argv[])
         error("ERROR connecting");
     //printf("Please enter the message: ");
     
+    cout << "PORT 1 DONE" << endl;
+    
     portnoR = 54321;
     receiveSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (receiveSocket < 0)
@@ -140,14 +171,22 @@ int main(int argc, char *argv[])
     serv_addr.sin_port = htons(portnoR);
     if (connect(receiveSocket,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
         error("ERROR connecting");
+    cout << "PORT 2 DONE" << endl;
+    
+    
     
     
     
     while(1)
     {
+        //-------------Set up config byte----------------------//
+        configByte = (filterType | (enSobel << 2) | (enBinarise << 3) | (enCombine << 4) | (enCombineFiltering << 5) | (abort << 6));
+        
         //-------------CAPTURE FRAME----------------------------//
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         cap >> inputImage;
+        if (inputImage.empty()) break;
+ 
         
         for (y = 0; y < HEIGHT; y++)
         {
@@ -159,23 +198,26 @@ int main(int argc, char *argv[])
             }
         }
         
+        sendBuffer[0] = configByte;
+        
         if (showInput == 1)
         {
             inputImage =  Mat(HEIGHT, WIDTH, CV_8U, (float*)h_frame_in.data());
             namedWindow("Sent Image", WINDOW_AUTOSIZE);
             imshow("Sent Image", inputImage);
-            //waitKey(17);
         }
+        
+        //configByte =
         
         //-------------TCP SEND-----------------------------------//
         //TCPSend(sendSocket, sendBuffer);
-        thread sendThread(TCPSend, sendSocket, sendBuffer);
-        sendThread.join();
+        TCPSend(sendSocket, sendBuffer);
+        
+        if(abort) break;
         
         
         //-----------TCP RECEIVE----------------------------------//
-        thread receiveThread(TCPReceive, receiveSocket, receiveBuffer);
-        receiveThread.join();
+        TCPReceive(receiveSocket, receiveBuffer);
         
         //-----------DISPLAY FRAME--------------------------------//
         for (y = 0; y < HEIGHT; y++)
@@ -194,13 +236,46 @@ int main(int argc, char *argv[])
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
         fps = 1000000/duration;
         
-        std::cout << fps << std::endl;
+        //std::cout << fps << std::endl;
         
-        waitKey(1);
+        keyPressed = (char)waitKey(10);
+        switch(keyPressed)
+        {
+            case(102): //102 = f
+                filterType = (filterType+1) % 4;
+                cout << "Filter Type: " << (int)filterType << endl;
+                break;
+            case(101): //101 = e
+                enSobel = !enSobel;
+                cout << "Edge Detection: " << (int)enSobel << endl;
+                break;
+            case(98): //98 = b
+                enBinarise = !enBinarise;
+                cout << "Binarisation: " << (int)enBinarise << endl;
+                break;
+            case(99): //99 = c
+                enCombine = !enCombine;
+                cout << "Combine: " << (int)enCombine << endl;
+                break;
+            case(118): //118 = v
+                enCombineFiltering = !enCombineFiltering;
+                cout << "Combine Filtering: " << (int)enCombineFiltering << endl;
+                break;
+            case(27):
+                abort = 1;
+                break;
+            case(112): //112 = p
+                keyPressed = 0;
+                while(keyPressed != 112) keyPressed = waitKey(10);
+                break;
+            default:
+                break;
+        }
         //--------------------------------------------------------//
+        //if(abort) break;
         
     }
     close(sendSocket);
-    while(1) x = 0;
+    close(receiveSocket);
     return 0;
 }
